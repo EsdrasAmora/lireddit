@@ -1,4 +1,5 @@
 import { ApolloServer } from "apollo-server-express"
+import "dotenv-safe/config"
 import connectRedis from "connect-redis"
 import cors from "cors"
 import express from "express"
@@ -20,13 +21,11 @@ import { createUpdootLoader } from "./utils/createUpdootLoader"
 
 const main = async () => {
 	const conn = await createConnection({
-		host: "192.168.99.100",
+		url: process.env.DATABASE_URL,
+		password: !__prod__ ? process.env.POSTGRES_PASSWORD : undefined,
 		type: "postgres",
-		database: "postgres",
-		username: "postgres",
-		password: "pwpdw&%gAQ2",
 		logging: true,
-		synchronize: true,
+		//synchronize: true,
 		migrations: [path.join(__dirname, "./migrations/*")],
 		entities: [Post, User, Updoot],
 	})
@@ -37,8 +36,9 @@ const main = async () => {
 	const app = express()
 
 	const RedisStore = connectRedis(session)
-	const redis = new Redis({ host: "192.168.99.100" })
-	app.use(cors({ origin: "http://localhost:3000", credentials: true }))
+	app.set("trust proxy", 1)
+	const redis = new Redis({ host: process.env.REDIS_HOST })
+	app.use(cors({ origin: process.env.CORS_ORIGIN, credentials: true }))
 	app.use(
 		session({
 			name: COKKIE_NAME,
@@ -51,9 +51,10 @@ const main = async () => {
 				httpOnly: true,
 				sameSite: "lax",
 				secure: __prod__,
+				domain: __prod__ ? ".berrycode.xyz" : undefined,
 			},
 			saveUninitialized: false,
-			secret: "rueghiurewgbvihwyehf",
+			secret: process.env.SESSION_SECRET,
 			resave: false,
 		})
 	)
@@ -74,7 +75,7 @@ const main = async () => {
 
 	apolloServer.applyMiddleware({ app, cors: false })
 
-	app.listen(4000, () => {
+	app.listen(parseInt(process.env.PORT), () => {
 		console.log("server started on localhost:4000")
 	})
 }
